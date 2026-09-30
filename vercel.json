@@ -1,0 +1,6 @@
+{
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/", "has": [{ "type": "query", "key": "page", "value": "summary" }], "destination": "/summary.html" }
+  ]
+}
