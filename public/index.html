@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workout Pro</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    body { font-family: 'Sarabun', sans-serif; background: #f4f7f6; margin: 0; padding: 15px; }
+    .card { max-width: 650px; background: white; padding: 20px; margin: auto; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+    input, select, textarea { width: 100%; padding: 10px; margin: 6px 0; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; }
+    button { background: #007BFF; color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 5px; width: 100%; font-size: 16px; margin-top: 10px; }
+    button:hover { background: #0056b3; }
+    .exercise-row { background: #f9f9f9; padding: 12px; margin-bottom: 12px; border-radius: 5px; border-left: 4px solid #007BFF; position: relative; }
+    .remove-btn { background: #dc3545; color: white; border: none; padding: 4px 8px; font-size: 12px; border-radius: 3px; cursor: pointer; float: right; margin-top: 0; width: auto;}
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+    th { background: #007BFF; color: white; }
+    .hidden { display: none; }
+    .logout-btn { background: #6c757d; width: auto; float: right; padding: 6px 12px; font-size: 12px; margin-top: 0; }
+    .loading { text-align: center; color: #666; font-style: italic; padding: 15px; }
+    hr { border: 0; border-top: 1px solid #eee; margin: 20px 0; }
+    .program-card-item { background: #fff; border: 1px solid #e0e0e0; border-left: 5px solid #28a745; padding: 12px; margin-bottom: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
+    .program-info h4 { margin: 0 0 5px 0; color: #333; font-size: 15px; }
+    .program-info p { margin: 0; color: #666; font-size: 13px; }
+    .view-btn { background: #17a2b8; width: auto; padding: 6px 12px; font-size: 13px; margin-top: 0; }
+
+    /* สไตล์รายการติ๊กเลือกลูกค้า (checkbox list) */
+    .client-checkbox-item { display:flex; align-items:center; gap:6px; padding:6px 8px; font-weight:normal; cursor:pointer; border-radius:5px; font-size:14px; }
+    .client-checkbox-item:hover { background:#f5f8ff; }
+    .client-checkbox-item.checked-item { background:#eaf3ff; }
+    .client-checkbox-item input[type="checkbox"] { width:auto; margin:0; }
+    .client-checkbox-item.no-match { display:none; }
+    .client-chip { display:inline-flex; align-items:center; gap:5px; background:#007BFF; color:#fff; padding:3px 6px 3px 10px; border-radius:12px; font-size:12px; margin:2px 4px 2px 0; }
+    .client-chip button { background:transparent; border:none; color:#fff; cursor:pointer; padding:0 2px; font-size:13px; line-height:1; width:auto; margin:0; }
+    .client-chip button:hover { color:#ffdcdc; background:transparent; }
+    
+    /* สไตล์ Spinner เล็กๆ สำหรับปุ่มซ่อน/แสดงโปรแกรม */
+    .spinner-small {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s ease infinite;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .exercise-suggestions {
+      position: absolute;
+      background: white;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      max-height: 150px;
+      overflow-y: auto;
+      width: calc(100% - 24px);
+      z-index: 999;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      display: none;
+    }
+    .suggestion-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      border-bottom: 1px solid #f1f1f1;
+    }
+    .suggestion-item:hover {
+      background: #f0f8ff;
+      color: #007BFF;
+    }
+  </style>
+</head>
+<body>
+  <div id="videoModal" style="display:none; position:fixed; z-index:99999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.85); justify-content:center; align-items:center;">
+    <div style="background:#fff; padding:10px; border-radius:8px; width:90%; max-width:400px; position:relative; text-align:center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+      <div style="text-align: right; margin-bottom: 5px;">
+        <button type="button" onclick="closeVideoPopup()" style="background:#dc3545; color:#fff; border:none; padding:6px 12px; cursor:pointer; border-radius:4px; width:auto; font-size:14px; font-weight:bold;">ปิด X</button>
+      </div>
+      <div id="videoContainer" style="width:100%; display:flex; justify-content:center; align-items:center;"></div>
+    </div>
+  </div>
+
+  <!-- หน้า Login -->
+  <div id="login-section" class="card">
+    <h2>🔐 เข้าสู่ระบบ</h2>
+    <label>Username:</label>
+    <input type="text" id="username" placeholder="กรอกไอดีของคุณ">
+    <label>Password:</label>
+    <input type="password" id="password" placeholder="กรอกรหัสผ่าน">
+    <button onclick="login()">เข้าสู่ระบบ</button>
+    <button onclick="openRegisterPopup()" style="background:#28a745; margin-top: 8px;">📝 สมัครสมาชิกใหม่ (สำหรับลูกค้า)</button>
+  </div>
+
+  <!-- หน้าฝั่ง Trainer -->
+  <div id="trainer-section" class="card hidden">
+    <button class="logout-btn" onclick="logout()">ออกจากระบบ</button>
+    <h2>🏋️‍♂️ Trainer Dashboard</h2>
+    <p>ยินดีต้อนรับ โค้ช <span id="trainer-name"></span></p>
+
+    <hr>
+    <h3>ออกชุดโปรแกรมออกกำลังกาย</h3>
+    <label>วันที่ออกโปรแกรม:</label>
+    <input type="date" id="t-date">
+    
+    <label>เลือกชื่อลูกค้า: <span style="font-weight:normal; color:#888; font-size:12px;">(เลือกได้มากกว่า 1 คน)</span></label>
+    <div style="display: flex; gap: 5px; align-items: flex-start;">
+      <div style="flex: 1; margin: 6px 0;">
+        <input type="text" id="t-client-search" placeholder="🔍 พิมพ์ค้นหาชื่อลูกค้า..." oninput="filterClientCheckboxList()" style="width:100%; margin-bottom:6px;">
+        <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+          <a href="#" onclick="toggleAllClientCheckboxes(true); return false;" style="color:#007BFF; text-decoration:none;">✅ เลือกทั้งหมด</a>
+          <a href="#" onclick="toggleAllClientCheckboxes(false); return false;" style="color:#dc3545; text-decoration:none;">✖️ ล้างการเลือก</a>
+        </div>
+        <div id="t-client-list" style="border:1px solid #ccc; border-radius:5px; max-height:180px; overflow-y:auto; padding:6px; background:#fff;">
+          <div style="padding:4px; font-size:13px; color:#888;">กำลังโหลดรายชื่อลูกค้า...</div>
+        </div>
+        <div id="t-client-selected-summary" style="margin-top:6px;"></div>
+      </div>
+      <button type="button" onclick="openAddClientPopup()" style="background:#28a745; width: auto; padding: 10px; margin: 6px 0; font-size: 14px;">+ เพิ่มลูกค้า</button>
+    </div>
+
+    <label>ชื่อชุดโปรแกรม:</label>
+    <input type="text" id="t-group" placeholder="เช่น โปรแกรมขา Day 1">
+    
+    <label>ข้อความเพิ่มเติม / Comment ถึงลูกค้า:</label>
+    <textarea id="t-comment" placeholder="คำแนะนำเพิ่มเติมสำหรับชุดโปรแกรมนี้..."></textarea>
+    
+    <div id="exercise-list">
+      <div class="exercise-row" style="position: relative;">
+        <button class="remove-btn" onclick="removeRow(this)">ลบท่านี้</button>
+        <label><b>ท่าที่ 1</b></label>
+        <label>ชื่อท่า (พิมพ์เพื่อค้นหาและคัดลอกท่าเก่า):</label>
+        <input type="text" class="ex-name" placeholder="เช่น Barbell Squat หรือ Lunge" oninput="filterExerciseSuggestions(this)">
+        <div class="exercise-suggestions"></div>
+        
+        <label>Load / Rep / Set / Rest:</label>
+        <div style="display: flex; gap: 5px;">
+          <input type="text" class="ex-load" placeholder="Load">
+          <input type="text" class="ex-rep" placeholder="Rep">
+          <input type="text" class="ex-set" placeholder="Set">
+          <input type="text" class="ex-rest" placeholder="Rest">
+        </div>
+        <label>ลิงก์วิดีโอ:</label>
+        <input type="text" class="ex-link" placeholder="URL">
+      </div>
+    </div>
+    
+    <button type="button" onclick="addExerciseRow()" style="background:#28a745; color:white; padding:12px; border:none; border-radius:5px; width:100%; cursor:pointer; font-size:16px; font-weight:bold;">
+      + เพิ่มท่าออกกำลังกายอีก
+    </button>
+    <button id="submit-program-btn" onclick="submitProgram()">💾 บันทึกชุดโปรแกรมทั้งหมด</button>
+    <button id="cancel-edit-btn" type="button" onclick="cancelEditProgram()" class="hidden" style="background:#6c757d;">✖️ ยกเลิกการแก้ไข</button>
+
+    <hr>
+    <h3>📈 ติดตามสถานะ</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+      <p style="margin:0; font-size: 13px; color: #666;">จัดการเป้าหมายและเขียนคอมเมนต์รายบุคคล</p>
+      <button type="button" onclick="openTrainerManageStatusPopup()" style="background: #28a745; width: auto; font-size: 13px; padding: 6px 12px; margin: 0;">➕ การติดตาม</button>
+    </div>
+    <div id="trainer-status-container" class="loading">กำลังโหลดข้อมูลสถานะลูกค้า...</div>
+
+    <hr>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h3>📋 รายการชุดโปรแกรมที่เคยออก</h3>
+      <select id="filter-client" style="width: 200px; margin: 0;" onchange="filterTrainerPrograms()">
+        <option value="">-- กรุณาเลือกลูกค้า --</option>
+      </select>
+    </div>
+    <p style="margin:4px 0 0 0; font-size:12px; color:#888;">กดปุ่ม "✏️ แก้ไข" เพื่อแก้ไขชุดโปรแกรม ระบบจะเก็บเวอร์ชันเดิมไว้เป็นประวัติอัตโนมัติสำหรับสรุปรายปี</p>
+    <div id="programs-card-container" class="loading" style="margin-top: 10px;">โปรดเลือกลูกค้าด้านบนเพื่อดูรายการชุดโปรแกรม</div>
+
+    <hr>
+    <h3>🧍 เปรียบเทียบองค์ประกอบร่างกาย (InBody)</h3>
+    <p style="margin:0 0 6px 0; font-size:12px; color:#888;">ดึงข้อมูลอัตโนมัติจากไฟล์ InBody เทียบผลตรวจล่าสุด 2 ครั้ง</p>
+    <select id="body-metrics-client-select" onchange="loadBodyMetricsForTrainer()" style="margin-bottom:10px;">
+      <option value="">-- เลือกลูกค้าเพื่อดูผล --</option>
+    </select>
+    <div id="body-metrics-container" class="loading">กรุณาเลือกลูกค้าด้านบนเพื่อดูผลเปรียบเทียบ</div>
+
+    <hr>
+    <!-- ส่วนสรุปผลการออกกำลังกายของลูกค้า (อยู่ด้านล่างสุด) -->
+    <h3>📊 สรุปผลการออกกำลังกายของลูกค้า</h3>
+    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+      <select id="summary-client-select" onchange="onSummaryClientChanged()" style="flex: 1; margin: 0;">
+        <option value="">-- เลือกลูกค้า --</option>
+      </select>
+      <div id="summary-program-dropdown-container" style="flex: 1; display: none;">
+        <select id="summary-program-select" onchange="loadTrainerLogSummaryData()" style="width: 100%; margin: 0;">
+          <option value="ALL">-- ทุกโปรแกรม --</option>
+        </select>
+      </div>
+    </div>
+    <div id="trainer-log-summary-container" class="loading">กรุณาเลือกลูกค้าเพื่อดูสรุปผลการฝึก</div>
+  </div>
+
+  <!-- ส่วนหน้า Client -->
+  <div id="client-section" class="card hidden">
+    <button class="logout-btn" onclick="logout()">ออกจากระบบ</button>
+    <h2>📋 โปรแกรมการฝึกของคุณ</h2>
+    <p>สวัสดีคุณ <span id="client-name"></span></p>
+    
+    <div id="client-program-container" class="loading">กำลังโหลดโปรแกรม...</div>
+
+    <hr>
+    <h3>⭐ บันทึกผลการเล่น & อัปเดตรายท่า</h3>
+    <label>เลือกชุดโปรแกรมที่ต้องการบันทึกผล:</label>
+    <select id="log-program-group" onchange="renderClientLogExercises()">
+      <option value="">-- เลือกชุดโปรแกรม --</option>
+    </select>
+    
+    <div id="client-log-exercises-container"></div>
+    
+    <div id="client-overall-log-section" class="hidden" style="margin-top: 15px; background: #f9f9f9; padding: 12px; border-radius: 5px; border: 1px solid #ddd;">
+      <label><b>ให้คะแนนความเหนื่อย (1 - 10):</b><span onclick="openVideoPopup('https://drive.google.com/file/d/1FfarZG1bW8JtzpZU6V1rmgwEAmn38zff/view?usp=sharing')" 
+        style="display: inline-flex; justify-content: center; align-items: center; width: 18px; height: 18px; background: #17a2b8; color: white; border-radius: 50%; font-size: 12px; cursor: pointer; margin-left: 5px; font-weight: bold;" 
+        title="คลิกเพื่อดูคำอธิบายระดับความเหนื่อย">?</span></label>
+      <input type="number" id="log-rating" min="1" max="10" value="">
+      
+      <label><b>หมายเหตุ / คอมเมนต์ภาพรวมการฝึกวันนี้:</b></label>
+      <textarea id="log-note" placeholder="วันนี้รู้สึกอย่างไรบ้าง..." style="height: 60px;"></textarea>
+    </div>
+
+    <button style="background: #17a2b8; margin-top: 15px;" onclick="submitLog()">📤 ส่งบันทึกผลให้เทรนเนอร์</button>
+    <button onclick="showHistory()" style="background:#6c757d; margin-top: 10px;">📜 ดูประวัติการฝึกย้อนหลัง</button>
+
+    <hr>
+    <h3>🧍 องค์ประกอบร่างกายของคุณ</h3>
+    <p style="margin:0 0 6px 0; font-size:12px; color:#888;">เทียบผลตรวจ InBody ล่าสุดกับครั้งก่อนหน้า</p>
+    <div id="client-body-metrics-container" class="loading">กำลังโหลดข้อมูล...</div>
+  </div>
+
+  <script src="/api-shim.js"></script>
+  <script>
+    var currentUser = {};
+    var allProgramGroups = [];
+    var clientProgramGroups = [];
+    var globalExistingExercises = [];
+    var editingOriginal = null; // เก็บข้อมูลอ้างอิงโปรแกรมเดิมขณะอยู่ในโหมดแก้ไข
+
+    window.onload = function() {
+      var savedUser = localStorage.getItem('workout_current_user');
+      if (savedUser) {
+        try {
+          currentUser = JSON.parse(savedUser);
+          if (!currentUser.name || currentUser.name === "undefined") {
+            localStorage.removeItem('workout_current_user');
+            currentUser = {};
+            return;
+          }
+          startAppByRole(currentUser);
+        } catch(e) {
+          localStorage.removeItem('workout_current_user');
+        }
+      }
+    };
+
+    function startAppByRole(res) {
+      document.getElementById('login-section').classList.add('hidden');
+      if(res.role === 'trainer') {
+        document.getElementById('trainer-section').classList.remove('hidden');
+        document.getElementById('client-section').classList.add('hidden');
+        document.getElementById('trainer-name').innerText = res.name;
+        document.getElementById('t-date').valueAsDate = new Date();
+        loadTrainerProgramGroups();
+        loadClientDropdown(); 
+        loadTrainerClientStatuses();
+        loadAllExercisesForSuggestions();
+        loadAllClientsForSummary();
+      } else {
+        document.getElementById('client-section').classList.remove('hidden');
+        document.getElementById('trainer-section').classList.add('hidden');
+        document.getElementById('client-name').innerText = res.name;
+        loadClientView(res.name);
+        loadClientBodyMetrics(res.name);
+      }
+    }
+
+    function login() {
+      var u = document.getElementById('username').value;
+      var p = document.getElementById('password').value;
+
+      Swal.fire({
+        title: 'กำลังเข้าสู่ระบบ...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          Swal.close();
+          if(res.status === "success") {
+            currentUser = res;
+            localStorage.setItem('workout_current_user', JSON.stringify(res));
+            startAppByRole(res);
+            Swal.fire({ icon: 'success', title: 'ยินดีต้อนรับ!', text: 'เข้าสู่ระบบสำเร็จ', timer: 1500, showConfirmButton: false });
+          } else {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: res.message });
+          }
+        })
+        .withFailureHandler(function(err) {
+          Swal.close();
+          Swal.fire({ icon: 'error', title: 'ระบบขัดข้อง', text: err.message });
+        })
+        .checkLogin(u, p);
+    }
+
+    function logout() {
+      localStorage.removeItem('workout_current_user');
+      localStorage.clear();
+      document.getElementById('trainer-section').classList.add('hidden');
+      document.getElementById('client-section').classList.add('hidden');
+      document.getElementById('login-section').classList.remove('hidden');
+      document.getElementById('username').value = '';
+      document.getElementById('password').value = '';
+      currentUser = {};
+    }
+
+    function loadClientDropdown() {
+      google.script.run
+        .withSuccessHandler(function(clients) {
+          clients = clients || [];
+          var listContainer = document.getElementById('t-client-list');
+          var filterSelect = document.getElementById('filter-client');
+
+          filterSelect.innerHTML = '<option value="">-- กรุณาเลือกลูกค้า --</option><option value="ALL_CLIENTS">-- ลูกค้าทั้งหมด --</option>';
+
+          var bodyMetricsSelect = document.getElementById('body-metrics-client-select');
+          if (bodyMetricsSelect) bodyMetricsSelect.innerHTML = '<option value="">-- เลือกลูกค้าเพื่อดูผล --</option>';
+
+          if (clients.length === 0) {
+            listContainer.innerHTML = '<div style="font-size:13px; color:#888; padding:4px;">ยังไม่มีรายชื่อลูกค้า กด "+ เพิ่มลูกค้า" เพื่อเริ่มต้น</div>';
+          } else {
+            var listHtml = '';
+            clients.forEach(function(c) {
+              listHtml += `<label class="client-checkbox-item" data-name="${c.toLowerCase()}">
+                <input type="checkbox" class="t-client-checkbox" value="${c}" onchange="onClientCheckboxChange(this)"> ${c}
+              </label>`;
+              filterSelect.innerHTML += `<option value="${c}">${c}</option>`;
+              if (bodyMetricsSelect) bodyMetricsSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+            listContainer.innerHTML = listHtml;
+          }
+
+          document.getElementById('t-client-search').value = '';
+          updateClientSelectionSummary();
+        })
+        .getClientList();
+    }
+
+    /* ============================================================
+       ====  เปรียบเทียบองค์ประกอบร่างกาย (InBody) ====
+       ============================================================ */
+
+    function loadBodyMetricsForTrainer() {
+      var clientName = document.getElementById('body-metrics-client-select').value;
+      var container = document.getElementById('body-metrics-container');
+      if (!clientName) {
+        container.innerHTML = "<p style='text-align:center; color:#888;'>กรุณาเลือกลูกค้าด้านบนเพื่อดูผลเปรียบเทียบ</p>";
+        return;
+      }
+      container.innerHTML = "<p class='loading'>กำลังโหลดข้อมูล...</p>";
+      google.script.run
+        .withSuccessHandler(function(records) {
+          renderBodyMetricsDiagram('body-metrics-container', records);
+        })
+        .withFailureHandler(function(err) {
+          container.innerHTML = "<p style='color:#dc3545; text-align:center;'>เกิดข้อผิดพลาด: " + err.message + "</p>";
+        })
+        .getBodyMetricsHistory(clientName);
+    }
+
+    function loadClientBodyMetrics(clientName) {
+      var container = document.getElementById('client-body-metrics-container');
+      google.script.run
+        .withSuccessHandler(function(records) {
+          renderBodyMetricsDiagram('client-body-metrics-container', records);
+        })
+        .withFailureHandler(function(err) {
+          container.innerHTML = "<p style='color:#dc3545; text-align:center;'>เกิดข้อผิดพลาด: " + err.message + "</p>";
+        })
+        .getBodyMetricsHistory(clientName);
+    }
+
+    // คำนวณส่วนต่างระหว่างค่าล่าสุดกับค่าก่อนหน้า พร้อมตัดสินสีตามทิศทางที่ "ดี" ของแต่ละค่า
+    // goodDirection: 'down' = ยิ่งลดยิ่งดี, 'up' = ยิ่งเพิ่มยิ่งดี, 'neutral' = ไม่ตัดสิน (เช่นน้ำหนักตัว แล้วแต่เป้าหมายลูกค้า)
+    function computeBodyMetricDelta(curr, prev, unit, goodDirection) {
+      var c = parseFloat(curr), p = parseFloat(prev);
+      if (curr === '' || curr === null || curr === undefined || isNaN(c)) {
+        return { valueText: '-', arrow: '', deltaShort: '', prevNote: 'ไม่มีข้อมูล', colorHex: '#888', bgHex: '#f0f1f3', hasPrev: false };
+      }
+      if (prev === null || prev === undefined || isNaN(p)) {
+        return { valueText: c + (unit || ''), arrow: '', deltaShort: '', prevNote: 'ยังไม่มีข้อมูลครั้งก่อน', colorHex: '#888', bgHex: '#f0f1f3', hasPrev: false };
+      }
+      var diff = c - p;
+      var arrow = diff > 0 ? '▲' : (diff < 0 ? '▼' : '■');
+      var colorHex = '#666', bgHex = '#f0f1f3';
+      if (goodDirection !== 'neutral' && diff !== 0) {
+        var isGood = (goodDirection === 'down' && diff < 0) || (goodDirection === 'up' && diff > 0);
+        colorHex = isGood ? '#1e7d3b' : '#c0392b';
+        bgHex = isGood ? '#e6f7ec' : '#fdecea';
+      }
+      var diffAbs = Math.abs(diff);
+      diffAbs = (Math.round(diffAbs * 100) / 100).toString();
+      return {
+        valueText: c + (unit || ''),
+        arrow: arrow,
+        deltaShort: diffAbs + (unit || ''),
+        prevNote: 'ครั้งก่อน ' + p + (unit || ''),
+        colorHex: colorHex,
+        bgHex: bgHex,
+        hasPrev: true
+      };
+    }
+
+    // ประมาณความกว้างของ badge จากความยาวข้อความ (คร่าวๆ พอสำหรับ diagram)
+    function _badgeWidth(text) {
+      return Math.max(50, text.length * 7 + 20);
+    }
+
+    // วาดไดอะแกรมรูปคน + การ์ดสรุป 4 ค่า (น้ำหนักตัว, ไขมันช่องท้อง, %ไขมัน, มวลกล้ามเนื้อ)
+    // records: array ที่ index 0 = ผลล่าสุด, index 1 = ผลครั้งก่อนหน้า (อาจไม่มีก็ได้)
+    function renderBodyMetricsDiagram(containerId, records) {
+      var container = document.getElementById(containerId);
+      if (!container) return;
+      records = records || [];
+
+      if (records.length === 0) {
+        container.innerHTML = "<p style='text-align:center; color:#888; padding:10px;'>ยังไม่มีข้อมูลผลตรวจ InBody ของลูกค้าคนนี้ในไฟล์</p>";
+        return;
+      }
+
+      var latest = records[0];
+      var prev = records.length > 1 ? records[1] : null;
+
+      var w = computeBodyMetricDelta(latest.weight, prev ? prev.weight : null, ' กก.', 'neutral');
+      var v = computeBodyMetricDelta(latest.visceralFat, prev ? prev.visceralFat : null, '', 'down');
+      var f = computeBodyMetricDelta(latest.fatPercent, prev ? prev.fatPercent : null, '%', 'down');
+      var m = computeBodyMetricDelta(latest.muscleMass, prev ? prev.muscleMass : null, ' กก.', 'up');
+      var wt = computeBodyMetricDelta(latest.waterPercent, prev ? prev.waterPercent : null, '%', 'neutral');
+      var bmr = computeBodyMetricDelta(latest.bmr, prev ? prev.bmr : null, ' kcal', 'up');
+      var age = computeBodyMetricDelta(latest.metabolicAge, prev ? prev.metabolicAge : null, ' ปี', 'down');
+      var bone = computeBodyMetricDelta(latest.boneMass, prev ? prev.boneMass : null, ' กก.', 'up');
+
+      var dateNote = 'ผลตรวจล่าสุดวันที่ ' + latest.date + (prev ? (' · เทียบกับครั้งก่อน ' + prev.date) : ' — ยังมีข้อมูลแค่ครั้งเดียว ยังเทียบ progression ไม่ได้');
+
+      // ป้ายชี้ 1 รายการ: จุดสี + เส้นชี้ + ชื่อ/ค่า + badge ส่วนต่าง (ถ้ามี)
+      function calloutSvg(markerX, markerY, dotColor, title, item) {
+        var chipW = _badgeWidth(item.arrow + ' ' + item.deltaShort);
+        var pieces = `
+          <circle cx="${markerX}" cy="${markerY}" r="7" fill="${dotColor}" stroke="#fff" stroke-width="2"/>
+          <line x1="${markerX + 9}" y1="${markerY}" x2="400" y2="${markerY}" stroke="#d5d9de" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="1,4"/>
+          <circle cx="400" cy="${markerY}" r="2.5" fill="${dotColor}"/>
+          <text x="410" y="${markerY - 8}" font-size="15" font-weight="700" fill="#2c2c2c">${title}</text>
+          <text x="410" y="${markerY + 10}" font-size="18" font-weight="700" fill="${dotColor}">${item.valueText}</text>`;
+        if (item.hasPrev && item.arrow) {
+          pieces += `
+          <rect x="410" y="${markerY + 18}" width="${chipW}" height="20" rx="10" fill="${item.bgHex}"/>
+          <text x="${410 + chipW / 2}" y="${markerY + 32}" font-size="11.5" font-weight="600" fill="${item.colorHex}" text-anchor="middle">${item.arrow} ${item.deltaShort}</text>
+          <text x="${410 + chipW + 8}" y="${markerY + 32}" font-size="11" fill="#aaa">${item.prevNote}</text>`;
+        } else {
+          pieces += `<text x="410" y="${markerY + 30}" font-size="11" fill="#aaa">${item.prevNote}</text>`;
+        }
+        return pieces;
+      }
+
+      var svg = `
+        <p style="font-size:12px; color:#888; margin:0 0 10px 0; text-align:center;">${dateNote}</p>
+        <svg width="100%" viewBox="0 0 680 420" style="max-width:600px; display:block; margin:0 auto;">
+          <defs>
+            <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#e4e8ed"/>
+              <stop offset="1" stop-color="#c9d0d8"/>
+            </linearGradient>
+          </defs>
+          <rect x="55" y="15" width="330" height="400" rx="36" fill="#f7f9fb"/>
+          <g fill="url(#bodyGrad)">
+            <circle cx="220" cy="72" r="25"/>
+            <rect x="184" y="96" width="72" height="132" rx="22"/>
+            <rect x="154" y="103" width="22" height="102" rx="11"/>
+            <rect x="264" y="103" width="22" height="102" rx="11"/>
+            <rect x="189" y="226" width="28" height="145" rx="14"/>
+            <rect x="223" y="226" width="28" height="145" rx="14"/>
+          </g>
+          ${calloutSvg(256, 98, '#1D9E75', 'น้ำหนักตัว', w)}
+          ${calloutSvg(256, 212, '#D85A30', 'ไขมันช่องท้อง', v)}
+          ${calloutSvg(251, 285, '#BA7517', 'เปอร์เซ็นต์ไขมัน', f)}
+          ${calloutSvg(251, 365, '#7F77DD', 'มวลกล้ามเนื้อ', m)}
+        </svg>`;
+
+      function card(emoji, label, dotColor, item) {
+        var badge = (item.hasPrev && item.arrow)
+          ? `<span style="display:inline-flex; align-items:center; gap:3px; padding:3px 9px; border-radius:12px; background:${item.bgHex}; color:${item.colorHex}; font-size:12px; font-weight:700;">${item.arrow} ${item.deltaShort}</span>`
+          : '';
+        return `<div style="background:#fff; border-radius:12px; padding:14px; box-shadow:0 1px 6px rgba(0,0,0,0.07); border-left:4px solid ${dotColor};">
+          <div style="font-size:18px; margin-bottom:2px;">${emoji}</div>
+          <div style="font-size:12px; color:#888; margin-bottom:4px;">${label}</div>
+          <div style="font-size:23px; font-weight:700; color:#222; margin-bottom:6px;">${item.valueText}</div>
+          ${badge}
+          <div style="font-size:11px; color:#aaa; margin-top:5px;">${item.prevNote}</div>
+        </div>`;
+      }
+
+      var cards = `<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-top:16px;">
+        ${card('⚖️', 'น้ำหนัก', '#1D9E75', w)}
+        ${card('📊', '%ไขมัน', '#BA7517', f)}
+        ${card('💧', '%น้ำในร่างกาย', '#2E9BD6', wt)}
+        ${card('💪', 'มวลกล้ามเนื้อ', '#7F77DD', m)}
+        ${card('🔥', 'BMR', '#E67E22', bmr)}
+        ${card('⏳', 'Metabolic age', '#8E6E53', age)}
+        ${card('🦴', 'มวลกระดูก', '#95A5A6', bone)}
+        ${card('🎯', 'ไขมันในช่องท้อง', '#D85A30', v)}
+      </div>`;
+
+      container.innerHTML = svg + cards;
+    }
+
+    // คืนรายชื่อลูกค้าที่ถูกติ๊กเลือกไว้ (ไม่นับช่องที่ถูก disable ระหว่างโหมดแก้ไข)
+    function getSelectedClientNames() {
+      var boxes = document.querySelectorAll('.t-client-checkbox:checked');
+      return Array.prototype.slice.call(boxes).map(function(cb) { return cb.value; });
+    }
+
+    // ไฮไลต์แถวเมื่อติ๊ก/ยกเลิกติ๊ก แล้วอัปเดตสรุปด้านล่าง
+    function onClientCheckboxChange(checkbox) {
+      var label = checkbox.closest('.client-checkbox-item');
+      if (label) label.classList.toggle('checked-item', checkbox.checked);
+      updateClientSelectionSummary();
+    }
+
+    // เลือก/ล้าง เฉพาะรายชื่อที่กำลังแสดงอยู่ (เผื่อกำลังค้นหา/กรองอยู่)
+    function toggleAllClientCheckboxes(checked) {
+      document.querySelectorAll('.client-checkbox-item:not(.no-match) .t-client-checkbox:not(:disabled)').forEach(function(cb) {
+        cb.checked = checked;
+        var label = cb.closest('.client-checkbox-item');
+        if (label) label.classList.toggle('checked-item', checked);
+      });
+      updateClientSelectionSummary();
+    }
+
+    // ค้นหาชื่อลูกค้าในรายการ (พิมพ์กรองแบบ real-time)
+    function filterClientCheckboxList() {
+      var query = document.getElementById('t-client-search').value.trim().toLowerCase();
+      document.querySelectorAll('.client-checkbox-item').forEach(function(label) {
+        var match = !query || (label.getAttribute('data-name') || '').indexOf(query) !== -1;
+        label.classList.toggle('no-match', !match);
+      });
+    }
+
+    // เอาลูกค้าออกจากรายการที่เลือก โดยกดที่ปุ่ม × บน chip
+    function uncheckClientChip(name) {
+      var box = document.querySelector('.t-client-checkbox[value="' + CSS.escape(name) + '"]');
+      if (!box) return;
+      box.checked = false;
+      var label = box.closest('.client-checkbox-item');
+      if (label) label.classList.remove('checked-item');
+      updateClientSelectionSummary();
+    }
+
+    function updateClientSelectionSummary() {
+      var summaryEl = document.getElementById('t-client-selected-summary');
+      if (!summaryEl) return;
+      var selected = getSelectedClientNames();
+      if (selected.length === 0) {
+        summaryEl.innerHTML = '<span style="font-size:12px; color:#888;">ยังไม่ได้เลือกลูกค้า</span>';
+        return;
+      }
+      var html = '<div style="font-size:12px; color:#555; margin-bottom:4px;">เลือกแล้ว ' + selected.length + ' คน:</div>';
+      selected.forEach(function(name) {
+        html += `<span class="client-chip">${name}<button type="button" onclick="uncheckClientChip('${name.replace(/'/g, "\\'")}')" title="เอาออก">✖</button></span>`;
+      });
+      summaryEl.innerHTML = html;
+    }
+
+    function loadAllExercisesForSuggestions() {
+      google.script.run
+        .withSuccessHandler(function(exercises) {
+          globalExistingExercises = exercises || [];
+        })
+        .getAllExistingExercises();
+    }
+
+    function filterExerciseSuggestions(inputElement) {
+      var query = inputElement.value.trim().toLowerCase();
+      var row = inputElement.closest('.exercise-row');
+      var suggestionBox = row.querySelector('.exercise-suggestions');
+
+      if (!query || globalExistingExercises.length === 0) {
+        suggestionBox.style.display = 'none';
+        suggestionBox.innerHTML = '';
+        return;
+      }
+
+      var filtered = globalExistingExercises.filter(function(ex) {
+        return ex.name.toLowerCase().includes(query);
+      });
+
+      if (filtered.length === 0) {
+        suggestionBox.style.display = 'none';
+        suggestionBox.innerHTML = '';
+        return;
+      }
+
+      var html = '';
+      filtered.forEach(function(item) {
+        var safeName = encodeURIComponent(item.name);
+        var safeLink = encodeURIComponent(item.link || '');
+        html += `<div class="suggestion-item" onclick="selectSuggestedExercise(this, '${safeName}', '${safeLink}')">🏋️‍♂️ ${item.name} ${item.link ? ' <span style="color:#007BFF; font-size:11px;">(มีลิงก์)</span>' : ''}</div>`;
+      });
+
+      suggestionBox.innerHTML = html;
+      suggestionBox.style.display = 'block';
+    }
+
+    function selectSuggestedExercise(element, encodedName, encodedLink) {
+      var name = decodeURIComponent(encodedName);
+      var link = decodeURIComponent(encodedLink);
+
+      var row = element.closest('.exercise-row');
+      row.querySelector('.ex-name').value = name;
+      row.querySelector('.ex-link').value = link;
+
+      var suggestionBox = row.querySelector('.exercise-suggestions');
+      suggestionBox.style.display = 'none';
+      suggestionBox.innerHTML = '';
+    }
+
+    function loadTrainerProgramGroups() {
+      google.script.run
+        .withSuccessHandler(function(groups) {
+          allProgramGroups = groups || [];
+          document.getElementById('programs-card-container').innerHTML = "<p style='text-align:center; color:#888;'>โปรดเลือกลูกค้าจากเมนูด้านบนเพื่อดูชุดโปรแกรม</p>";
+          document.getElementById('filter-client').value = "";
+        })
+        .withFailureHandler(function(err) {
+          Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message });
+        })
+        .getTrainerProgramGroups();
+    }
+
+    function filterTrainerPrograms() {
+      var filterClient = document.getElementById('filter-client').value;
+      var container = document.getElementById('programs-card-container');
+
+      if (!filterClient) {
+        container.innerHTML = "<p style='text-align:center; color:#888;'>โปรดเลือกลูกค้าจากเมนูด้านบนเพื่อดูชุดโปรแกรม</p>";
+        return;
+      }
+
+      var filtered = [];
+      if (filterClient === "ALL_CLIENTS") {
+        filtered = allProgramGroups;
+      } else {
+        filtered = allProgramGroups.filter(function(g) {
+          return g.client && g.client.trim().toLowerCase() === filterClient.trim().toLowerCase();
+        });
+      }
+
+      renderTrainerCards(filtered);
+    }
+
+    function submitProgram() {
+      var trainer = currentUser.name;
+      var date = document.getElementById('t-date').value;
+      var selectedClients = getSelectedClientNames();
+      var programGroup = document.getElementById('t-group').value;
+      var comment = document.getElementById('t-comment').value;
+      var isEditing = !!editingOriginal;
+
+      if (selectedClients.length === 0 || !programGroup) {
+        Swal.fire({ icon: 'warning', title: 'ข้อมูลไม่ครบ', text: 'กรุณาเลือกชื่อลูกค้าอย่างน้อย 1 คน และระบุชื่อชุดโปรแกรม' });
+        return;
+      }
+      if (isEditing && selectedClients.length > 1) {
+        Swal.fire({ icon: 'warning', title: 'เลือกลูกค้าได้แค่ 1 คน', text: 'ระหว่างแก้ไขโปรแกรม สามารถเลือกลูกค้าได้เพียง 1 คนเท่านั้น' });
+        return;
+      }
+
+      var rows = document.querySelectorAll('#exercise-list .exercise-row');
+      var exercises = [];
+      
+      rows.forEach(function(row) {
+        exercises.push({
+          exercise: row.querySelector('.ex-name').value,
+          load: row.querySelector('.ex-load').value,
+          rep: row.querySelector('.ex-rep').value,
+          set: row.querySelector('.ex-set').value,
+          rest: row.querySelector('.ex-rest').value,
+          link: row.querySelector('.ex-link').value
+        });
+      });
+
+      Swal.fire({ title: isEditing ? 'กำลังบันทึกการแก้ไข...' : 'กำลังบันทึกโปรแกรม...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+      var payload = { trainer: trainer, date: date, programGroup: programGroup, comment: comment, exercises: exercises };
+
+      var call = google.script.run
+        .withSuccessHandler(function(msg) {
+          Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: msg, timer: 1800, showConfirmButton: false });
+          cancelEditProgram();
+          loadTrainerProgramGroups();
+          loadAllExercisesForSuggestions();
+          loadAllClientsForSummary();
+        })
+        .withFailureHandler(function(err) {
+          Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message });
+        });
+
+      if (isEditing) {
+        payload.clientName = selectedClients[0];
+        payload.original = editingOriginal;
+        call.updateWorkoutProgram(payload);
+      } else {
+        payload.clientNames = selectedClients;
+        call.saveWorkoutProgram(payload);
+      }
+    }
+
+    // แปลงวันที่รูปแบบ dd/MM/yyyy (ที่ใช้แสดงผล) ให้เป็น yyyy-MM-dd (สำหรับ input type="date")
+    function convertDMYtoISO(dmy) {
+      if (!dmy) return '';
+      var parts = String(dmy).split('/');
+      if (parts.length !== 3) return '';
+      return parts[2] + '-' + parts[1] + '-' + parts[0];
+    }
+
+    function buildExerciseRowElement(index, ex) {
+      var esc = function(v) { return String(v || '').replace(/"/g, '&quot;'); };
+      var div = document.createElement('div');
+      div.className = 'exercise-row';
+      div.style.position = 'relative';
+      div.innerHTML = `
+        <button class="remove-btn" onclick="removeRow(this)">ลบท่านี้</button>
+        <label><b>ท่าที่ ${index}</b></label>
+        <label>ชื่อท่า (พิมพ์เพื่อค้นหาและคัดลอกท่าเก่า):</label>
+        <input type="text" class="ex-name" placeholder="ชื่อท่า" value="${esc(ex.exercise)}" oninput="filterExerciseSuggestions(this)">
+        <div class="exercise-suggestions"></div>
+        <label>Load / Rep / Set / Rest:</label>
+        <div style="display: flex; gap: 5px;">
+          <input type="text" class="ex-load" placeholder="Load" value="${esc(ex.load)}">
+          <input type="text" class="ex-rep" placeholder="Rep" value="${esc(ex.rep)}">
+          <input type="text" class="ex-set" placeholder="Set" value="${esc(ex.set)}">
+          <input type="text" class="ex-rest" placeholder="Rest" value="${esc(ex.rest)}">
+        </div>
+        <label>ลิงก์วิดีโอ:</label>
+        <input type="text" class="ex-link" placeholder="URL" value="${esc(ex.link)}">
+      `;
+      return div;
+    }
+
+    // เริ่มโหมดแก้ไข: ดึงข้อมูลชุดโปรแกรมเดิมมาใส่ในฟอร์มด้านบน
+    // เมื่อกดบันทึก โปรแกรมเดิมจะไม่ถูกลบ แต่จะถูกเก็บเป็นประวัติ (Archived) แล้วบันทึกเวอร์ชันใหม่แทน
+    function startEditProgram(encodedJson) {
+      try {
+        var g = JSON.parse(decodeURIComponent(encodedJson));
+        if (!g) return;
+
+        editingOriginal = { client: g.client, groupName: g.groupName, date: g.formattedDate };
+
+        setClientSelectionForEdit(g.client);
+        document.getElementById('t-group').value = g.groupName;
+        document.getElementById('t-comment').value = g.comment || '';
+        var isoDate = convertDMYtoISO(g.formattedDate);
+        if (isoDate) document.getElementById('t-date').value = isoDate;
+
+        var container = document.getElementById('exercise-list');
+        container.innerHTML = '';
+        (g.exercises || []).forEach(function(ex, i) {
+          container.appendChild(buildExerciseRowElement(i + 1, ex));
+        });
+        if (!g.exercises || g.exercises.length === 0) addExerciseRow();
+
+        document.getElementById('submit-program-btn').innerHTML = '🔄 บันทึกการแก้ไขโปรแกรม';
+        document.getElementById('cancel-edit-btn').classList.remove('hidden');
+
+        Swal.fire({ icon: 'info', title: 'โหมดแก้ไขโปรแกรม', text: 'แก้ไขข้อมูลด้านบนแล้วกด "บันทึกการแก้ไขโปรแกรม" ระบบจะเก็บเวอร์ชันเดิมไว้เป็นประวัติให้อัตโนมัติ', timer: 2500, showConfirmButton: false });
+
+        var dateField = document.getElementById('t-date');
+        if (dateField) dateField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // ระหว่างแก้ไขโปรแกรม ให้ล็อกไว้ที่ลูกค้าคนเดิมเท่านั้น (ติ๊กเฉพาะคนนี้ และปิดการเลือกคนอื่นชั่วคราว)
+    function setClientSelectionForEdit(clientName) {
+      document.querySelectorAll('.t-client-checkbox').forEach(function(cb) {
+        cb.checked = (cb.value === clientName);
+        cb.disabled = (cb.value !== clientName);
+        var label = cb.closest('.client-checkbox-item');
+        if (label) label.classList.toggle('checked-item', cb.checked);
+      });
+      document.getElementById('t-client-search').value = '';
+      filterClientCheckboxList();
+      updateClientSelectionSummary();
+    }
+
+    // ยกเลิกโหมดแก้ไข / รีเซ็ตฟอร์มกลับสู่โหมด "ออกโปรแกรมใหม่"
+    function cancelEditProgram() {
+      editingOriginal = null;
+      document.getElementById('t-group').value = '';
+      document.getElementById('t-comment').value = '';
+      document.querySelectorAll('.t-client-checkbox').forEach(function(cb) {
+        cb.checked = false;
+        cb.disabled = false;
+        var label = cb.closest('.client-checkbox-item');
+        if (label) label.classList.remove('checked-item');
+      });
+      document.getElementById('t-client-search').value = '';
+      filterClientCheckboxList();
+      updateClientSelectionSummary();
+      document.getElementById('t-date').valueAsDate = new Date();
+      document.getElementById('exercise-list').innerHTML = `
+        <div class="exercise-row" style="position: relative;">
+          <button class="remove-btn" onclick="removeRow(this)">ลบท่านี้</button>
+          <label><b>ท่าที่ 1</b></label>
+          <label>ชื่อท่า (พิมพ์เพื่อค้นหาและคัดลอกท่าเก่า):</label>
+          <input type="text" class="ex-name" placeholder="ชื่อท่า" oninput="filterExerciseSuggestions(this)">
+          <div class="exercise-suggestions"></div>
+          <label>Load / Rep / Set / Rest:</label>
+          <div style="display: flex; gap: 5px;">
+            <input type="text" class="ex-load" placeholder="Load">
+            <input type="text" class="ex-rep" placeholder="Rep">
+            <input type="text" class="ex-set" placeholder="Set">
+            <input type="text" class="ex-rest" placeholder="Rest">
+          </div>
+          <label>ลิงก์วิดีโอ:</label>
+          <input type="text" class="ex-link" placeholder="URL">
+        </div>`;
+      var btn = document.getElementById('submit-program-btn');
+      if (btn) btn.innerHTML = '💾 บันทึกชุดโปรแกรมทั้งหมด';
+      var cancelBtn = document.getElementById('cancel-edit-btn');
+      if (cancelBtn) cancelBtn.classList.add('hidden');
+    }
+
+    function renderTrainerCards(groups) {
+      var container = document.getElementById('programs-card-container');
+      if(!groups || !Array.isArray(groups) || groups.length === 0) {
+        container.innerHTML = "<p style='text-align:center; color:#888;'>ยังไม่มีชุดโปรแกรมสำหรับลูกค้ารายนี้</p>";
+        return;
+      }
+
+      var html = '';
+      groups.forEach(function(g) {
+        var safeGroupJson = encodeURIComponent(JSON.stringify(g));
+        var isHidden = g.isHidden === true;
+        var visibilityText = isHidden ? "🙈 ซ่อนอยู่" : "👁️ แสดงอยู่";
+        var visibilityColor = isHidden ? "#ffc107" : "#28a745";
+        var safeClient = g.client.replace(/'/g, "\\'");
+        var safeGroup = g.groupName.replace(/'/g, "\\'");
+        
+        html += `
+          <div class="program-card-item" style="border-left-color: ${isHidden ? '#ffc107' : '#28a745'};">
+            <div class="program-info">
+              <h4>🏋️‍♂️ ${g.groupName} ${isHidden ? '<span style="color:red; font-size:11px;">(ซ่อนจากลูกค้า)</span>' : ''}</h4>
+              <p><b>ลูกค้า:</b> ${g.client} | <b>วันที่:</b> ${g.formattedDate} | <b>จำนวนท่า:</b> ${g.totalExercises} ท่า</p>
+            </div>
+            <div style="display: flex; gap: 5px; align-items: center;">
+              <button id="btn-vis-${g.client}-${g.groupName.replace(/\s+/g, '_')}" style="background: ${visibilityColor}; padding: 6px 10px; font-size: 12px; width: auto; margin-top:0;" onclick="toggleVisibility(this, '${safeClient}', '${safeGroup}')">${visibilityText}</button>
+              <button class="view-btn" onclick="showProgramDetailFromData('${safeGroupJson}')">🔍 ดู</button>
+              <button style="background:#ffc107; color:#333; padding:6px 10px; font-size:12px; width:auto; margin-top:0;" onclick="startEditProgram('${safeGroupJson}')">✏️ แก้ไข</button>
+            </div>
+          </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    // เพิ่ม Spinner เล็กๆ ขณะกดซ่อน/แสดงโปรแกรม
+    function toggleVisibility(btnElement, clientName, groupName) {
+      var originalText = btnElement.innerHTML;
+      btnElement.innerHTML = '<span class="spinner-small"></span> กำลังบันทึก...';
+      btnElement.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function(msg) {
+          Swal.fire({ icon: 'success', title: 'สำเร็จ', text: msg, timer: 1000, showConfirmButton: false });
+          loadTrainerProgramGroups();
+          setTimeout(filterTrainerPrograms, 300);
+        })
+        .withFailureHandler(function(err) {
+          btnElement.innerHTML = originalText;
+          btnElement.disabled = false;
+          Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message });
+        })
+        .toggleProgramVisibility(currentUser.name, clientName, groupName);
+    }
+
+    function loadAllClientsForSummary() {
+      google.script.run
+        .withSuccessHandler(function(clients) {
+          var summaryClientSelect = document.getElementById('summary-client-select');
+          summaryClientSelect.innerHTML = '<option value="">-- เลือกลูกค้าทั้งหมด --</option><option value="ALL_SUMMARY_CLIENTS">-- ลูกค้าทุกคน --</option>';
+          if (clients && clients.length > 0) {
+            clients.forEach(function(c) {
+              summaryClientSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+          }
+          loadTrainerLogSummaryData();
+        })
+        .getClientList();
+    }
+
+    function onSummaryClientChanged() {
+      var clientName = document.getElementById('summary-client-select').value;
+      var progDropdownContainer = document.getElementById('summary-program-dropdown-container');
+      var progSelect = document.getElementById('summary-program-select');
+
+      if (!clientName || clientName === "ALL_SUMMARY_CLIENTS") {
+        progDropdownContainer.style.display = 'none';
+        loadTrainerLogSummaryData();
+        return;
+      }
+
+      google.script.run
+        .withSuccessHandler(function(programs) {
+          if (programs && programs.length > 1) {
+            var options = '<option value="ALL">-- ทุกโปรแกรม --</option>';
+            programs.forEach(function(p) {
+              options += `<option value="${p.name}">${p.name}</option>`;
+            });
+            progSelect.innerHTML = options;
+            progDropdownContainer.style.display = 'block';
+          } else {
+            progDropdownContainer.style.display = 'none';
+          }
+          loadTrainerLogSummaryData();
+        })
+        .getProgramsByClient(clientName);
+    }
+
+    // โหลดตารางสรุปข้อมูลแบบยุบแถวตามวันและโปรแกรม
+    function loadTrainerLogSummaryData() {
+      var clientName = document.getElementById('summary-client-select').value;
+      var progDropdownContainer = document.getElementById('summary-program-dropdown-container');
+      var programGroup = "ALL";
+      
+      if (clientName === "ALL_SUMMARY_CLIENTS") {
+        clientName = "";
+      } else if (progDropdownContainer.style.display !== 'none') {
+        programGroup = document.getElementById('summary-program-select').value;
+      }
+
+      var container = document.getElementById('trainer-log-summary-container');
+      container.innerHTML = "<p class='loading'>กำลังโหลดข้อมูลสรุป...</p>";
+
+      google.script.run
+        .withSuccessHandler(function(logs) {
+          if (!logs || logs.length === 0) {
+            container.innerHTML = "<p style='text-align:center; color:#888; padding:15px;'>ยังไม่มีบันทึกการออกกำลังกายจากลูกค้า</p>";
+            return;
+          }
+
+          var html = `
+            <div style="background: #fff; border: 1px solid #ddd; border-radius: 6px; overflow-x: auto; max-height: 400px; overflow-y: auto;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                <thead>
+                 <tr style="background: #007BFF; color: white; position: sticky; top: 0; z-index: 1;">
+  <th style="padding: 8px;">วันที่</th>
+  <th style="padding: 8px;">ชื่อลูกค้า</th>
+  <th style="padding: 8px;">ชื่อโปรแกรม</th>
+  <th style="padding: 8px; text-align: center;">จำนวนครั้งที่บันทึกออกกำลังกาย</th>
+  <th style="padding: 8px;">คอมเมนต์</th>
+</tr>
+                </thead>
+                <tbody>
+          `;
+
+          logs.forEach(function(l, idx) {
+            var rowBg = idx % 2 === 0 ? "#ffffff" : "#f9f9f9";
+            html += `
+              <tr style="background: ${rowBg}; border-bottom: 1px solid #eee;">
+                <td style="padding: 8px; white-space: nowrap;">📅 ${l.date}</td>
+                <td style="padding: 8px; font-weight: bold;">👤 ${l.clientName}</td>
+                <td style="padding: 8px; color: #007BFF;">${l.programGroup}</td>
+                <td style="padding: 8px; text-align: center; color: #28a745; font-weight: bold;">${l.count} ครั้ง</td>
+                <td style="padding: 8px; font-style: italic; color: #555;">${l.note || '-'}</td>
+              </tr>
+            `;
+          });
+
+          html += `
+                </tbody>
+              </table>
+            </div>
+          `;
+          container.innerHTML = html;
+        })
+        .getTrainerLogSummary(currentUser.name, clientName, programGroup);
+    }
+
+    function showProgramDetailFromData(encodedJson) {
+      try {
+        var g = JSON.parse(decodeURIComponent(encodedJson));
+        if(!g) return;
+
+        var exerciseHtml = `<table style="font-size:14px; text-align:left; width:100%; border-collapse: collapse; margin-top:10px;">
+          <tr>
+            <th style="border: 1px solid #ddd; padding: 6px; background: #007BFF; color: white; text-align: center;">#</th>
+            <th style="border: 1px solid #ddd; padding: 6px; background: #007BFF; color: white;">ชื่อท่า</th>
+            <th style="border: 1px solid #ddd; padding: 6px; background: #007BFF; color: white; text-align: center;">Load</th>
+            <th style="border: 1px solid #ddd; padding: 6px; background: #007BFF; color: white; text-align: center;">Rep</th>
+            <th style="border: 1px solid #ddd; padding: 6px; background: #007BFF; color: white; text-align: center;">Set</th>
+            <th style="border: 1px solid #ddd; padding: 6px; background: #007BFF; color: white; text-align: center;">Rest</th>
+            <th style="border: 1px solid #ddd; padding: 6px; background: #007BFF; color: white; text-align: center;">วิดีโอ</th>
+          </tr>`;
+        
+        if(g.exercises && g.exercises.length > 0) {
+          g.exercises.forEach(function(ex, i) {
+            exerciseHtml += `<tr>
+              <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${i+1}</td>
+              <td style="border: 1px solid #ddd; padding: 6px;"><b>${ex.exercise || '-'}</b></td>
+              <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${ex.load || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${ex.rep || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${ex.set || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">${ex.rest || '-'}</td>
+              <td style="border: 1px solid #ddd; padding: 6px; text-align: center;">
+                ${ex.link ? `<button type="button" style="background:#17a2b8; padding:4px 8px; font-size:12px; width:auto; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="openVideoPopup('${ex.link}')">▶️ ดูวิดีโอ</button>` : '-'}
+              </td>
+            </tr>`;
+          });
+        }
+        exerciseHtml += `</table>`;
+
+        Swal.fire({
+          title: `${g.groupName || 'รายละเอียดโปรแกรม'}`,
+          html: `<p style="text-align:left; margin-bottom:5px; color:#555;"><b>ลูกค้า:</b> ${g.client} | <b>วันที่:</b> ${g.formattedDate}</p>` + 
+                (g.comment ? `<p style="text-align:left; color:#007BFF; margin-bottom:5px;"><b>Comment:</b> ${g.comment}</p>` : '') + exerciseHtml,
+          width: '750px',
+          confirmButtonText: 'ปิดหน้าต่าง'
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    
+    function loadClientView(clientName) {
+      var container = document.getElementById('client-program-container');
+      if (container) container.innerHTML = "<p class='loading'>กำลังโหลดโปรแกรม...</p>";
+
+      google.script.run
+        .withSuccessHandler(function(groups) {
+          clientProgramGroups = groups || [];
+          var container = document.getElementById('client-program-container');
+          var selectGroup = document.getElementById('log-program-group');
+          
+          if(!container) return;
+
+          if(!groups || groups.length === 0) {
+            container.innerHTML = "<p style='text-align:center; color:#888;'>ยังไม่มีโปรแกรมออกกำลังกายในระบบ</p>";
+            if(selectGroup) selectGroup.innerHTML = '<option value="">-- ไม่พบชุดโปรแกรม --</option>';
+            return;
+          }
+          
+          var html = '';
+          if(selectGroup) selectGroup.innerHTML = '<option value="">-- เลือกชุดโปรแกรมที่เล่นเสร็จ --</option>';
+          
+          groups.forEach(function(g, index) {
+            html += `
+              <div class="program-card-item">
+                <div class="program-info">
+                  <h4>📋 ${g.groupName || 'โปรแกรมทั่วไป'}</h4>
+                  <p><b>เทรนเนอร์:</b> <span style="color:#007BFF; font-weight:bold;">${g.trainer}</span> | <b>วันที่:</b> ${g.date} | <b>จำนวน:</b> ${g.totalExercises} ท่า</p>
+                  ${g.comment ? `<p style="color: #28a745; margin-top: 3px;">💬 คำแนะนำ: ${g.comment}</p>` : ''}
+                </div>
+                <button class="view-btn" onclick="showClientProgramPopup(${index})">🔍 ดูท่า</button>
+              </div>`;
+              
+            if(selectGroup) {
+              selectGroup.innerHTML += `<option value="${index}">${g.groupName} (${g.date})</option>`;
+            }
+          });
+          container.innerHTML = html;
+        })
+        .getClientProgram(clientName);
+    }
+
+    function renderClientLogExercises() {
+      var index = document.getElementById('log-program-group').value;
+      var container = document.getElementById('client-log-exercises-container');
+      var overallSection = document.getElementById('client-overall-log-section');
+      
+      if (index === "") {
+        container.innerHTML = "";
+        overallSection.classList.add('hidden');
+        return;
+      }
+      
+      var g = clientProgramGroups[index];
+      if (!g) return;
+      
+      overallSection.classList.remove('hidden');
+      
+      var html = `<div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-top: 10px;">
+        <h4 style="margin: 0 0 10px 0; color: #333;">📝 อัปเดตน้ำหนักและจำนวนครั้ง: ${g.groupName}</h4>`;
+      
+      g.exercises.forEach(function(ex, i) {
+        html += `
+          <div style="background: #fff; border: 1px solid #ccc; padding: 8px; margin-bottom: 8px; border-radius: 4px;" class="log-item-row" data-exercise="${ex.exercise}">
+            <p style="margin: 0 0 5px 0;"><b>ท่าที่ ${i+1}: ${ex.exercise}</b> (เป้าหมาย: Load ${ex.load || '-'} / Rep ${ex.rep || '-'} / Rest ${ex.rest || '-'})</p>
+            <div style="display: flex; gap: 5px;">
+              <input type="text" class="log-actual-load" placeholder="น้ำหนักที่ยกได้จริง (เช่น 60kg)" style="margin:0; width:50%;">
+              <input type="text" class="log-actual-rep" placeholder="จำนวนครั้งที่ทำได้ (เช่น 10 Reps)" style="margin:0; width:50%;">
+            </div>
+          </div>`;
+      });
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    function submitLog() {
+      var index = document.getElementById('log-program-group').value;
+      if(index === "") {
+        Swal.fire({ icon: 'warning', title: 'แจ้งเตือน', text: 'กรุณาเลือกชุดโปรแกรมที่ต้องการบันทึกผล' });
+        return;
+      }
+
+      var g = clientProgramGroups[index];
+      var rows = document.querySelectorAll('.log-item-row');
+      var exerciseLogs = [];
+
+      rows.forEach(function(row) {
+        var loadVal = row.querySelector('.log-actual-load').value;
+        var repVal = row.querySelector('.log-actual-rep').value;
+        var combinedLoadRep = (loadVal || "-") + " / " + (repVal || "-") + " Reps";
+
+        exerciseLogs.push({
+          exercise: row.getAttribute('data-exercise'),
+          actualLoad: combinedLoadRep
+        });
+      });
+
+      var logData = {
+        clientName: currentUser.name,
+        programGroup: g.groupName,
+        rating: document.getElementById('log-rating').value,
+        note: document.getElementById('log-note').value,
+        exerciseLogs: exerciseLogs
+      };
+
+      Swal.fire({ title: 'กำลังบันทึกผล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+      google.script.run
+        .withSuccessHandler(function(msg) {
+          Swal.fire({ icon: 'success', title: 'บันทึกสำเร็จ!', text: msg, timer: 1500, showConfirmButton: false });
+          document.getElementById('log-program-group').value = "";
+          document.getElementById('client-log-exercises-container').innerHTML = "";
+          document.getElementById('client-overall-log-section').classList.add('hidden');
+          document.getElementById('log-note').value = "";
+        })
+        .submitWorkoutLog(logData);
+    }
+
+    function getEmbedUrl(url) {
+      if (!url) return "";
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        var videoId = "";
+        if (url.includes('/shorts/')) {
+          var match = url.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
+          if (match && match[1]) videoId = match[1];
+        } else if (url.includes('watch?v=')) {
+          var match = url.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+          if (match && match[1]) videoId = match[1];
+        } else if (url.includes('youtu.be/')) {
+          var match = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+          if (match && match[1]) videoId = match[1];
+        }
+        if (videoId) return "https://www.youtube.com/embed/" + videoId + "?autoplay=1";
+      }
+      if (url.includes('drive.google.com')) {
+        var match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match && match[1]) return "https://drive.google.com/file/d/" + match[1] + "/preview";
+      }
+      return url;
+    }
+
+    function openVideoPopup(url) {
+      var embedUrl = getEmbedUrl(url);
+      var container = document.getElementById('videoContainer');
+      if (embedUrl.includes('youtube.com/embed') || embedUrl.includes('/preview')) {
+        container.innerHTML = `<iframe src="${embedUrl}" width="100%" height="500" style="border:none; aspect-ratio:9/16;" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+      } else {
+        container.innerHTML = `<video src="${embedUrl}" controls autoplay style="width:100%; max-height:70vh;"></video>`;
+      }
+      document.getElementById('videoModal').style.display = 'flex';
+    }
+
+    function closeVideoPopup() {
+      var modal = document.getElementById('videoModal');
+      var container = document.getElementById('videoContainer');
+      if (modal) modal.style.display = 'none';
+      if (container) container.innerHTML = '';
+    }
+
+    function addExerciseRow() {
+      var container = document.getElementById('exercise-list');
+      if (!container) return;
+      var count = container.getElementsByClassName('exercise-row').length + 1;
+      
+      var div = document.createElement('div');
+      div.className = 'exercise-row';
+      div.style.position = 'relative';
+      div.innerHTML = `
+        <button class="remove-btn" onclick="removeRow(this)">ลบท่านี้</button>
+        <label><b>ท่าที่ ${count}</b></label>
+        <label>ชื่อท่า (พิมพ์เพื่อค้นหาและคัดลอกท่าเก่า):</label>
+        <input type="text" class="ex-name" placeholder="ชื่อท่า" oninput="filterExerciseSuggestions(this)">
+        <div class="exercise-suggestions"></div>
+        <label>Load / Rep / Set / Rest:</label>
+        <div style="display: flex; gap: 5px;">
+          <input type="text" class="ex-load" placeholder="Load">
+          <input type="text" class="ex-rep" placeholder="Rep">
+          <input type="text" class="ex-set" placeholder="Set">
+          <input type="text" class="ex-rest" placeholder="Rest">
+        </div>
+        <label>ลิงก์วิดีโอ:</label>
+        <input type="text" class="ex-link" placeholder="URL">
+      `;
+      container.appendChild(div);
+    }
+
+    function removeRow(button) {
+      var row = button.parentElement;
+      var container = document.getElementById('exercise-list');
+      if (container.getElementsByClassName('exercise-row').length > 1) {
+        row.remove();
+        updateExerciseNumbers();
+      } else {
+        Swal.fire({ icon: 'warning', title: 'แจ้งเตือน', text: 'ต้องมีอย่างน้อย 1 ท่าออกกำลังกาย' });
+      }
+    }
+
+    function updateExerciseNumbers() {
+      var rows = document.querySelectorAll('#exercise-list .exercise-row');
+      rows.forEach(function(row, index) {
+        var label = row.querySelector('b');
+        if (label) label.innerText = `ท่าที่ ${index + 1}`;
+      });
+    }
+
+    function openRegisterPopup() {
+      Swal.fire({
+        title: '📝 สมัครสมาชิกใหม่',
+        html: '<input id="swal-user" class="swal2-input" placeholder="Username">' +
+              '<input id="swal-pass" type="password" class="swal2-input" placeholder="Password">' +
+              '<input id="swal-name" class="swal2-input" placeholder="ชื่อ-นามสกุลจริง">',
+        confirmButtonText: 'ยืนยันการสมัคร',
+        showCancelButton: true,
+        preConfirm: () => ({
+          username: document.getElementById('swal-user').value,
+          password: document.getElementById('swal-pass').value,
+          fullName: document.getElementById('swal-name').value,
+          role: 'client'
+        })
+      }).then((result) => {
+        if (result.isConfirmed) sendRegisterData(result.value);
+      });
+    }
+
+    function openAddClientPopup() {
+      Swal.fire({
+        title: '➕ เพิ่มรายชื่อลูกค้าใหม่',
+        html: '<input id="swal-user" class="swal2-input" placeholder="Username">' +
+              '<input id="swal-pass" type="password" class="swal2-input" placeholder="Password">' +
+              '<input id="swal-name" class="swal2-input" placeholder="ชื่อ-นามสกุล">',
+        confirmButtonText: 'บันทึกข้อมูล',
+        showCancelButton: true,
+        preConfirm: () => ({
+          username: document.getElementById('swal-user').value,
+          password: document.getElementById('swal-pass').value,
+          fullName: document.getElementById('swal-name').value,
+          role: 'client'
+        })
+      }).then((result) => {
+        if (result.isConfirmed) sendRegisterData(result.value, true);
+      });
+    }
+
+    function sendRegisterData(data, isTrainerAction = false) {
+      Swal.fire({ title: 'กำลังบันทึกข้อมูล...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (res.status === "success") {
+            Swal.fire({ icon: 'success', title: 'สำเร็จ!', text: res.message, timer: 1500, showConfirmButton: false });
+            if (isTrainerAction) {
+              loadClientDropdown();
+              loadAllClientsForSummary();
+            }
+          } else {
+            Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: res.message });
+          }
+        })
+        .registerUser(data);
+    }
+
+    function showHistory() {
+      Swal.fire({
+        title: '📜 ประวัติการฝึกย้อนหลัง',
+        html: '<div id="history-container" style="text-align:left; max-height:400px; overflow-y:auto; padding:5px;">กำลังโหลด...</div>',
+        width: '650px',
+        confirmButtonText: 'ปิดหน้าต่าง',
+        didOpen: () => {
+          google.script.run
+            .withSuccessHandler(function(history) {
+              if(!history || history.length === 0) {
+                document.getElementById('history-container').innerHTML = "<p style='text-align:center; color:#888;'>ยังไม่มีประวัติการฝึกในระบบ</p>";
+                return;
+              }
+              var groupedHistory = {};
+              history.forEach(h => {
+                var key = h.program + " (" + h.date.split(' ')[0] + ")";
+                if (!groupedHistory[key]) {
+                  groupedHistory[key] = { programName: h.program, date: h.date, rating: h.rating, note: h.note, exercises: [] };
+                }
+                groupedHistory[key].exercises.push({ exercise: h.exercise, load: h.load });
+              });
+
+              let html = '';
+              for (let key in groupedHistory) {
+                let item = groupedHistory[key];
+                let exerciseListHtml = '';
+                item.exercises.forEach((ex, idx) => {
+                  exerciseListHtml += `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #eee; font-size: 13px;"><span><b>${idx + 1}.</b> ${ex.exercise}</span><span style="color: #007BFF; font-weight: bold;">${ex.load}</span></div>`;
+                });
+                html += `<div style="background: #fdfdfd; border: 1px solid #e0e0e0; border-left: 4px solid #17a2b8; padding: 10px; margin-bottom: 10px; border-radius: 6px;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;"><h4 style="margin: 0; color: #333; font-size: 14px;">📋 ${item.programName}</h4><span style="font-size: 11px; color: #666;">📅 ${item.date}</span></div><div style="background: #fff; padding: 6px 8px; border-radius: 4px; border: 1px solid #f0f0f0; margin-bottom: 6px;">${exerciseListHtml}</div><div style="font-size: 12px; color: #555; display: flex; justify-content: space-between;"><span>⭐ RPE: <b>${item.rating}/10</b></span><span>💬 โน้ต: <i>${item.note || '-'}</i></span></div></div>`;
+              }
+              document.getElementById('history-container').innerHTML = html;
+            })
+            .getClientHistory(currentUser.name);
+        }
+      });
+    }
+
+    function loadTrainerClientStatuses() {
+      var currentTrainer = (typeof currentUser !== 'undefined' && currentUser.name) ? currentUser.name : "";
+      google.script.run
+        .withSuccessHandler(function(statuses) {
+          var container = document.getElementById('trainer-status-container');
+          if (!statuses || statuses.length === 0) {
+            container.innerHTML = "<p style='text-align:center; color:#888; padding:15px;'>ยังไม่มีข้อมูลสถานะลูกค้าในการดูแลของคุณ</p>";
+            return;
+          }
+          var html = `<div style="background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; min-width: 700px;"><thead><tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6; color: #495057;"><th style="padding: 10px 12px;">ลูกค้า</th><th style="padding: 10px 12px;">เป้าหมาย</th><th style="padding: 10px 12px;">โปรแกรมล่าสุด</th><th style="padding: 10px 12px; text-align: center;">สถานะ</th><th style="padding: 10px 12px;">คอมเมนต์</th><th style="padding: 10px 12px; text-align: right;">อัปเดต</th></tr></thead><tbody>`;
+          statuses.forEach(function(s, index) {
+  // สร้าง Dropdown สำหรับเลือกสถานะโดยตรง
+  var statusDropdown = `<select class="swal2-input" style="padding: 2px 6px; height: 28px; font-size: 11px; margin: 0; width: 110px;" onchange="quickUpdateClientStatus('${s.username}', this.value)">
+    <option value="ขาดการติดต่อ" ${s.currentStatus === 'ขาดการติดต่อ' ? 'selected' : ''}>ขาดการติดต่อ</option>
+    <option value="กำลังดำเนินการ" ${s.currentStatus === 'กำลังดำเนินการ' ? 'selected' : ''}>กำลังดำเนินการ</option>
+    <option value="สำเร็จแล้ว 🎉" ${s.currentStatus === 'สำเร็จแล้ว 🎉' ? 'selected' : ''}>สำเร็จแล้ว 🎉</option>
+  </select>`;
+
+  html += `<tr style="border-bottom: 1px solid #f1f1f1;">
+    <td style="padding: 10px 12px; font-weight: bold;">👤 ${s.username}</td>
+    <td style="padding: 10px 12px;">${s.goalType}<br><small>${s.targetValue || '-'}</small></td>
+    <td style="padding: 10px 12px; color: #007bff;">${s.latestProgram} ${s.latestProgramDate && s.latestProgramDate !== '-' ? `<br><small style="color: #666;">(${s.latestProgramDate})</small>` : ''}</td>
+    <td style="padding: 10px 12px; text-align: center;">${statusDropdown}</td>
+    <td style="padding: 10px 12px; color: #d9534f;">${s.trainerNote || '-'}</td>
+    <td style="padding: 10px 12px; text-align: right; color: #999; font-size: 11px;">${s.updatedAt}</td>
+  </tr>`;
+});
+          html += `</tbody></table></div>`;
+          container.innerHTML = html;
+        })
+        .getAllClientStatuses(currentTrainer);
+    }
+
+function openTrainerManageStatusPopup() {
+  google.script.run
+    .withSuccessHandler(function(clients) {
+      if (!clients || clients.length === 0) {
+        Swal.fire({ icon: 'warning', title: 'ไม่พบรายชื่อลูกค้าในระบบ' });
+        return;
+      }
+      
+      var clientOptions = '';
+      clients.forEach(c => { clientOptions += `<option value="${c}">${c}</option>`; });
+      
+      Swal.fire({
+        title: '📝 จัดการสถานะ & คอมเมนต์ลูกค้า',
+        html: `<div style="text-align: left; display: flex; flex-direction: column; gap: 8px;">
+          <label>เลือกลูกค้า</label>
+          <select id="swal-st-client" class="swal2-input" style="width:100%; margin:0;" onchange="updateProgramDropdownForPopup()">${clientOptions}</select>
+          <label>เลือกโปรแกรม</label>
+          <select id="swal-st-program" class="swal2-input" style="width:100%; margin:0;"><option value="-">-- โหลดโปรแกรม --</option></select>
+          <label>ประเภทเป้าหมาย</label>
+          <input id="swal-st-goal" class="swal2-input" placeholder="เช่น ลดไขมัน" style="width:100%; margin:0;">
+          <label>ค่าเป้าหมาย</label>
+          <input id="swal-st-target" class="swal2-input" placeholder="เช่น 60kg" style="width:100%; margin:0;">
+          <label>สถานะ</label>
+          <select id="swal-st-status" class="swal2-input" style="width:100%; margin:0;">
+            <option value="ขาดการติดต่อ">ขาดการติดต่อ</option>
+            <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
+            <option value="สำเร็จแล้ว 🎉">สำเร็จแล้ว</option>
+            
+          </select>
+          <label>คอมเมนต์</label>
+          <textarea id="swal-st-note" class="swal2-textarea" style="width:100%; margin:0; height:60px;"></textarea>
+        </div>`,
+        width: '500px',
+        confirmButtonText: '💾 บันทึก',
+        showCancelButton: true,
+        cancelButtonText: 'ยกเลิก',
+        didOpen: () => {
+          var firstClient = document.getElementById('swal-st-client').value;
+          if (firstClient) loadProgramOptionsForPopup(firstClient);
+        },
+        preConfirm: () => {
+          // เปิดใช้งาน Spinner โหลดในปุ่มยืนยัน
+          Swal.showLoading();
+          
+          return {
+            username: document.getElementById('swal-st-client').value,
+            selectedProgram: document.getElementById('swal-st-program').value,
+            goalType: document.getElementById('swal-st-goal').value,
+            targetValue: document.getElementById('swal-st-target').value,
+            currentStatus: document.getElementById('swal-st-status').value,
+            trainerNote: document.getElementById('swal-st-note').value,
+            trainerName: (typeof currentUser !== 'undefined' && currentUser.name) ? currentUser.name : ""
+          };
+        }
+      }).then((result) => {
+        if (result.isConfirmed) {
+          google.script.run.withSuccessHandler(msg => {
+            Swal.fire({ icon: 'success', title: 'สำเร็จ', text: msg, timer: 1500, showConfirmButton: false });
+            loadTrainerClientStatuses();
+          }).saveClientStatusByTrainer(result.value);
+        }
+      });
+    })
+    .getClientList();
+}
+
+    function updateProgramDropdownForPopup() {
+      var clientName = document.getElementById('swal-st-client').value;
+      if (clientName) loadProgramOptionsForPopup(clientName);
+    }
+
+    function loadProgramOptionsForPopup(clientName) {
+      var progSelect = document.getElementById('swal-st-program');
+      if (!progSelect) return;
+      google.script.run.withSuccessHandler(programs => {
+        if (!programs || programs.length === 0) {
+          progSelect.innerHTML = '<option value="-">-- ไม่มีโปรแกรม --</option>';
+          return;
+        }
+        var options = '';
+        programs.forEach(p => { options += `<option value="${p.name}">${p.name} (${p.date})</option>`; });
+        progSelect.innerHTML = options;
+      }).getProgramsByClient(clientName);
+    }
+
+    function showClientProgramPopup(index) {
+      var g = clientProgramGroups[index];
+      if(!g) return;
+      var exerciseHtml = `<table><tr><th>#</th><th>ชื่อท่า</th><th>Load</th><th>Rep</th><th>Set</th><th>Rest</th><th>วิดีโอ</th></tr>`;
+      g.exercises.forEach(function(ex, i) {
+        exerciseHtml += `<tr><td>${i+1}</td><td><b>${ex.exercise || '-'}</b></td><td>${ex.load || '-'}</td><td>${ex.rep || '-'}</td><td>${ex.set || '-'}</td><td>${ex.rest || '-'}</td><td>${ex.link ? `<button type="button" style="background:#17a2b8; padding:4px 8px; font-size:12px; width:auto;" onclick="openVideoPopup('${ex.link}')">▶️ ดู</button>` : '-'}</td></tr>`;
+      });
+      exerciseHtml += `</table>`;
+      Swal.fire({ title: g.groupName, html: `<p><b>เทรนเนอร์:</b> ${g.trainer} | <b>วันที่:</b> ${g.date}</p>` + (g.comment ? `<p style="color:#28a745;"><b>คำแนะนำ:</b> ${g.comment}</p>` : '') + exerciseHtml, width: '750px', confirmButtonText: 'ปิด' });
+    }
+function quickUpdateClientStatus(username, newStatus) {
+  var currentTrainer = (typeof currentUser !== 'undefined' && currentUser.name) ? currentUser.name : "";
+  
+  // แสดง Toast แจ้งเตือนกำลังบันทึก
+  Swal.fire({
+    title: 'กำลังบันทึก...',
+    text: 'อัปเดตสถานะของ ' + username,
+    allowOutsideClick: false,
+    didOpen: () => { Swal.showLoading(); }
+  });
+
+  google.script.run
+    .withSuccessHandler(function(msg) {
+      Swal.fire({
+        icon: 'success',
+        title: 'อัปเดตสำเร็จ',
+        text: msg,
+        timer: 1000,
+        showConfirmButton: false
+      });
+      loadTrainerClientStatuses(); // รีเฟรชตารางใหม่
+    })
+    .withFailureHandler(function(err) {
+      Swal.fire({ icon: 'error', title: 'เกิดข้อผิดพลาด', text: err.message });
+    })
+    .updateQuickClientStatusOnly({
+      username: username,
+      currentStatus: newStatus,
+      trainerName: currentTrainer
+    });
+}
+
+  </script>
+</body>
+</html>
